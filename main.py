@@ -4,7 +4,6 @@ from datetime import datetime
 import sqlite3
 
 
-
 @dataclass(eq=True, frozen=True)
 class Datapoint:
     date_time: datetime
@@ -39,39 +38,43 @@ def datapoints_from_table(html: str) -> set[Datapoint]:
     return datapoints
 
 
-
 # read html
 
 with open('tabla.html') as f:
     html = f.read()
 
 # connect to db (create it if it does not exist)
-con = sqlite3.connect('weather.db')
-cur = con.cursor()
+with sqlite3.connect('weather.db') as con:
+    # con = sqlite3.connect('weather.db')
+    cur = con.cursor()
 
-# create table 'tides' if it does not exist:
-res = cur.execute('SELECT count(*) FROM sqlite_master WHERE type="table" AND name="tides";')
-if res.fetchall()[0][0] == 0:
-    cur.execute('CREATE TABLE tides (date_time TEXT, location TEXT, height REAL);')
+    # create table 'tides' if it does not exist:
+    res = cur.execute('SELECT count(*) FROM sqlite_master WHERE type="table" AND name="tides";')
+    if res.fetchall()[0][0] == 0:
+        cur.execute('CREATE TABLE tides (date_time TEXT, location TEXT, height REAL);')
 
-# read_datapoints from html table
+    # read_datapoints from html table
 
-datapoints = datapoints_from_table(html)
+    datapoints = datapoints_from_table(html)
 
-# insert datapoints in db
+    # insert datapoints in db
 
-# TODO: prevent adding repeating datapoints
+    for datapoint in datapoints:
+        date_time = datapoint.date_time.strftime('%Y-%m-%d %H:%M:%S')
+        location = datapoint.location
+        height = datapoint.height
+        params = (date_time, location, height)
+        # check if record exists, if not, add it to db
+        if not cur.execute(
+                f'SELECT * from tides WHERE date_time = "{date_time}" AND location = "{location}"').fetchone():
+            cur.execute('INSERT INTO tides VALUES (?, ?, ?)', params)
+            con.commit()
 
-for datapoint in datapoints:
-    date_time = datapoint.date_time.strftime('%Y-%m-%D %H:%M:%S')
-    location = datapoint.location
-    height = datapoint.height
-    params = (date_time, location, height)
-    cur.execute('INSERT INTO tides VALUES (?, ?, ?)', params)
-    con.commit()
+#con.close()
+
+
 
 res = cur.execute('SELECT * FROM tides')
 results = res.fetchall()
 for result in results:
     print(result)
-
