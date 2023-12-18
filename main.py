@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup
 from dataclasses import dataclass
 from datetime import datetime
 import sqlite3
+import requests
 
 @dataclass(eq=True, frozen=True)
 class Datapoint:
@@ -38,6 +39,19 @@ def datapoints_from_table(html: str) -> set[Datapoint]:
         datapoints.add(Datapoint(date_time=date_time, location=location, height=height))
     return datapoints
 
+'''
+def create_db(db: str) -> None: # puede devolver el cursor?
+    # connect to db (create it if it does not exist)
+    with sqlite3.connect(db) as con:
+        # con = sqlite3.connect('weather.db')
+        cur = con.cursor()
+
+        # create table 'tides' if it does not exist:
+        res = cur.execute('SELECT count(*) FROM sqlite_master WHERE type="table" AND name="tides";')
+        if res.fetchall()[0][0] == 0:
+            cur.execute('CREATE TABLE tides (date_time TEXT, location TEXT, height REAL);')
+'''
+
 def add_datapoints_to_db(db: str, datapoints: set) -> None:
 
     # connect to db (create it if it does not exist)
@@ -64,12 +78,13 @@ def add_datapoints_to_db(db: str, datapoints: set) -> None:
                 con.commit()
 
 
+# import current data
 
+r = requests.get('http://www.hidro.gov.ar/oceanografia/alturashorarias.asp', auth=('user', 'pass'))
+html = r.text
 
-# read html
-
-with open('tabla.html') as f:
-    html = f.read()
+#with open('tabla.html') as f:
+#    html = f.read()
 
 # read_datapoints from html table
 
@@ -83,10 +98,10 @@ add_datapoints_to_db('weather.db', datapoints)
 
 # TODO: make function to convert query results to datapoints
 
+
 with sqlite3.connect('weather.db') as con:
     cur = con.cursor()
     res = cur.execute('SELECT * FROM tides')
     results = res.fetchall()
     for result in results:
         print(result)
-        print(type(result))
