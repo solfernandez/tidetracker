@@ -1,9 +1,9 @@
-from sqlite3 import Cursor
 from bs4 import BeautifulSoup
 from dataclasses import dataclass
 from datetime import datetime
 import sqlite3
 import requests
+import time
 
 @dataclass(eq=True, frozen=True)
 class Datapoint:
@@ -67,32 +67,40 @@ def add_datapoints_to_db(db: str, datapoints: set) -> None:
             con.commit()
 
 
-# collect last hour data
+def collect_current_tide_data(url:str) -> None:
+    # collect last hour data
 
-r = requests.get('http://www.hidro.gov.ar/oceanografia/alturashorarias.asp', auth=('user', 'pass'))
-html = r.text
+    r = requests.get(url, auth=('user', 'pass'))
+    html = r.text
 
-#with open('tabla.html') as f:
-#    html = f.read()
+    # extract datapoints from html table
 
-# read_datapoints from html table
+    datapoints = datapoints_from_table(html)
 
-datapoints = datapoints_from_table(html)
+    # create db and table "tides"
+    db = create_db_and_table_tides('weather.db')
 
-# create db and table "tides"
-db = create_db_and_table_tides('weather.db')
+    # insert datapoints in db
+    add_datapoints_to_db(db, datapoints)
 
-# insert datapoints in db
-add_datapoints_to_db(db, datapoints)
+    #con.close()
 
-#con.close()
+
+if __name__ == '__main__':
+
+    url = 'http://www.hidro.gov.ar/oceanografia/alturashorarias.asp'
+    while True:
+        collect_current_tide_data(url)
+        time.sleep(3600)
+
 
 # TODO: make function to convert query results to datapoints
-# TODO: collect data every hour
 
+''' 
 with sqlite3.connect('weather.db') as con:
     cur = con.cursor()
     res = cur.execute('SELECT * FROM tides')
     results = res.fetchall()
     for result in results:
         print(result)
+'''
