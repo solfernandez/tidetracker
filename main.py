@@ -1,3 +1,4 @@
+from sqlite3 import Cursor
 from bs4 import BeautifulSoup
 from dataclasses import dataclass
 from datetime import datetime
@@ -39,46 +40,34 @@ def datapoints_from_table(html: str) -> set[Datapoint]:
         datapoints.add(Datapoint(date_time=date_time, location=location, height=height))
     return datapoints
 
-'''
-def create_db(db: str) -> None: # puede devolver el cursor?
+
+def create_db_and_table_tides(db: str) -> str: # puede devolver el conector?
     # connect to db (create it if it does not exist)
     with sqlite3.connect(db) as con:
-        # con = sqlite3.connect('weather.db')
-        cur = con.cursor()
-
+        cursor = con.cursor()
         # create table 'tides' if it does not exist:
-        res = cur.execute('SELECT count(*) FROM sqlite_master WHERE type="table" AND name="tides";')
+        res = cursor.execute('SELECT count(*) FROM sqlite_master WHERE type="table" AND name="tides";')
         if res.fetchall()[0][0] == 0:
-            cur.execute('CREATE TABLE tides (date_time TEXT, location TEXT, height REAL);')
-'''
+            cursor.execute('CREATE TABLE tides (date_time TEXT, location TEXT, height REAL);')
+        return db
 
 def add_datapoints_to_db(db: str, datapoints: set) -> None:
-
-    # connect to db (create it if it does not exist)
     with sqlite3.connect(db) as con:
-        # con = sqlite3.connect('weather.db')
-        cur = con.cursor()
+        cursor = con.cursor()
 
-        # create table 'tides' if it does not exist:
-        res = cur.execute('SELECT count(*) FROM sqlite_master WHERE type="table" AND name="tides";')
-        if res.fetchall()[0][0] == 0:
-            cur.execute('CREATE TABLE tides (date_time TEXT, location TEXT, height REAL);')
-
-        # insert datapoints in db
-
-        for datapoint in datapoints:
-            date_time = datapoint.date_time.strftime('%Y-%m-%d %H:%M:%S')
-            location = datapoint.location
-            height = datapoint.height
-            params = (date_time, location, height)
-            # check if record exists, if not, add it to db
-            if not cur.execute(
-                    f'SELECT * from tides WHERE date_time = "{date_time}" AND location = "{location}"').fetchone():
-                cur.execute('INSERT INTO tides VALUES (?, ?, ?)', params)
-                con.commit()
+    for datapoint in datapoints:
+        date_time = datapoint.date_time.strftime('%Y-%m-%d %H:%M:%S')
+        location = datapoint.location
+        height = datapoint.height
+        params = (date_time, location, height)
+        # check if record exists, if not, add it to db
+        if not cursor.execute(
+                f'SELECT * from tides WHERE date_time = "{date_time}" AND location = "{location}"').fetchone():
+            cursor.execute('INSERT INTO tides VALUES (?, ?, ?)', params)
+            con.commit()
 
 
-# import current data
+# collect last hour data
 
 r = requests.get('http://www.hidro.gov.ar/oceanografia/alturashorarias.asp', auth=('user', 'pass'))
 html = r.text
@@ -90,14 +79,16 @@ html = r.text
 
 datapoints = datapoints_from_table(html)
 
-# insert datapoints in db
+# create db and table "tides"
+db = create_db_and_table_tides('weather.db')
 
-add_datapoints_to_db('weather.db', datapoints)
+# insert datapoints in db
+add_datapoints_to_db(db, datapoints)
 
 #con.close()
 
 # TODO: make function to convert query results to datapoints
-
+# TODO: collect data every hour
 
 with sqlite3.connect('weather.db') as con:
     cur = con.cursor()
