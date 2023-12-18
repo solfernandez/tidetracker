@@ -1,8 +1,7 @@
 import os
 from datetime import datetime
 import sqlite3
-from main import datapoints_from_table, add_datapoints_to_db, Datapoint
-
+from main import datapoints_from_table, add_datapoints_to_db, Datapoint, create_db_and_table_tides
 
 
 
@@ -27,9 +26,10 @@ def test_datapoints_from_table():
     datapoints = datapoints_from_table(html)
     assert datapoints == datapoints_set
 
-def test_add_datapoints_to_db():
-    add_datapoints_to_db('test_adding_datapoints.db', datapoints_set)
-    with sqlite3.connect('test_adding_datapoints.db') as con:
+
+def test_add_datapoints_to_db(tmp_path):
+    db = create_db_and_table_tides(str(tmp_path) + '/test_db.db')
+    with sqlite3.connect(db) as con:
         cur = con.cursor()
         res = cur.execute('SELECT * FROM tides')
         results = res.fetchall()
@@ -40,4 +40,3 @@ def test_add_datapoints_to_db():
             datapoint = Datapoint(date_time=datetime.strptime(date_time, '%Y-%m-%d %H:%M:%S'), location=location, height=height)
             assert datapoint in datapoints_set
 
-# TODO: create db in temp path from pytest (check pytest docs)
